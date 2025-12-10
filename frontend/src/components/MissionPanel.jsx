@@ -13,32 +13,33 @@ const MissionPanel = ({ missions, vehicles }) => {
     }
 
     return (
-        <div className="panel">
-            <h2>Active Missions</h2>
+        <div>
+            <h2 className="text-2xl font-black mb-4 border-b-4 border-black inline-block">MISSIONS</h2>
+
             {Object.entries(missions).map(([vehicleId, items]) => (
-                <div key={vehicleId} style={{ marginBottom: '15px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{vehicleId.toUpperCase()}</h3>
+                <div key={vehicleId} className="mb-4">
+                    <div className="flex justify-between items-center mb-2 bg-black text-white p-1 px-2 border-2 border-white outline outline-2 outline-black">
+                        <h3 className="font-bold uppercase tracking-widest">{vehicleId}</h3>
                         <button
                             onClick={() => handleRTL(vehicleId)}
-                            style={{ backgroundColor: 'orange', border: 'none', borderRadius: '3px', padding: '2px 5px', cursor: 'pointer', fontWeight: 'bold' }}
+                            className="bg-neo-orange text-black border-2 border-white px-2 text-xs font-bold hover:bg-white hover:border-black transition-colors"
                         >
-                            RTL
+                            ABORT / RTL
                         </button>
                     </div>
 
                     {items.length === 0 ? (
-                        <div style={{ color: '#666', fontStyle: 'italic' }}>No mission</div>
+                        <div className="text-xs font-mono border-2 border-black p-2 bg-white/50 text-center">IDLE - NO ORDERS</div>
                     ) : (
-                        <ul className="mission-list">
+                        <div className="space-y-1">
                             {items.map(item => (
-                                <li key={item.seq} className="mission-step">
-                                    <span className="step-seq">{item.seq}</span>
-                                    {item.command}
-                                    {item.command === 'WAYPOINT' && ` -> [${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}]`}
-                                </li>
+                                <div key={item.seq} className="flex gap-2 text-xs font-mono border-b border-black/20 pb-1">
+                                    <span className="font-bold text-neo-blue">#{item.seq}</span>
+                                    <span className="font-bold">{item.command}</span>
+                                    {item.command === 'WAYPOINT' && <span className="opacity-70">[{item.lat.toFixed(3)}, {item.lon.toFixed(3)}]</span>}
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     )}
                 </div>
             ))}

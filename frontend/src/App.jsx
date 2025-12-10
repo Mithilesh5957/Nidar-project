@@ -21,10 +21,6 @@ function App() {
 
                 const dRes = await api.get('/detections');
                 setDetections(dRes.data);
-
-                // Fetch missions for each vehicle
-                // For prototype, we might skip this or do it loop
-                // vRes.data.forEach(async v => { ... })
             } catch (err) {
                 console.error("Initial fetch failed", err);
             }
@@ -34,7 +30,6 @@ function App() {
 
         // 2. Connect WebSocket
         gcsWebSocket.connect(() => {
-            // Subscribe to Veh Telemetry
             ['scout', 'delivery'].forEach(vid => {
                 gcsWebSocket.subscribe(`/topic/telemetry/${vid}`, (data) => {
                     setVehicles(prev => {
@@ -48,7 +43,6 @@ function App() {
                     });
                 });
 
-                // Subscribe to Missions
                 gcsWebSocket.subscribe(`/topic/missions/${vid}`, (data) => {
                     setMissions(prev => ({
                         ...prev,
@@ -57,13 +51,9 @@ function App() {
                 });
             });
 
-            // Subscribe to Detections
             gcsWebSocket.subscribe('/topic/detections', (data) => {
                 setDetections(prev => {
-                    // If array (full list update)
                     if (Array.isArray(data)) return data;
-
-                    // If single item (new detection or update)
                     const idx = prev.findIndex(d => d.id === data.id);
                     if (idx >= 0) {
                         const newD = [...prev];
@@ -78,15 +68,51 @@ function App() {
     }, []);
 
     return (
-        <div className="app-container">
-            <div className="sidebar">
-                <h1 style={{ textAlign: 'center', color: '#007acc', margin: '10px 0' }}>NIDAR GCS</h1>
-                <TelemetryPanel vehicles={vehicles} />
-                <MissionPanel missions={missions} vehicles={vehicles} />
-                <DetectionPanel detections={detections} />
-            </div>
-            <div className="main-content">
-                <MapView vehicles={vehicles} missions={missions} />
+        <div className="min-h-screen bg-neo-bg p-4 font-display">
+            <div className="flex flex-col h-[95vh] gap-4">
+
+                {/* Header */}
+                <header className="bg-neo-yellow border-4 border-black shadow-neo rounded-none p-4 flex justify-between items-center">
+                    <h1 className="text-4xl font-black uppercase tracking-tighter italic">
+                        NIDAR <span className="text-neo-pink">GCS</span>
+                    </h1>
+                    <div className="flex gap-2">
+                        <div className="px-4 py-2 bg-white border-2 border-black font-bold shadow-neo-sm animate-pulse">
+                            LIVE SYSTEM
+                        </div>
+                        <div className="px-4 py-2 bg-neo-blue border-2 border-black font-bold shadow-neo-sm">
+                            v1.0.0
+                        </div>
+                    </div>
+                </header>
+
+                {/* Main Grid */}
+                <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
+
+                    {/* Left Sidebar - Panels */}
+                    <div className="col-span-3 flex flex-col gap-4 overflow-y-auto pr-2 pb-2">
+                        <div className="bg-white border-4 border-black shadow-neo p-4">
+                            <TelemetryPanel vehicles={vehicles} />
+                        </div>
+
+                        <div className="bg-neo-pink border-4 border-black shadow-neo p-4">
+                            <MissionPanel missions={missions} vehicles={vehicles} />
+                        </div>
+
+                        <div className="bg-neo-blue border-4 border-black shadow-neo p-4">
+                            <DetectionPanel detections={detections} />
+                        </div>
+                    </div>
+
+                    {/* Right Content - Map */}
+                    <div className="col-span-9 relative border-4 border-black shadow-neo bg-gray-200">
+                        <div className="absolute top-0 left-0 z-[1000] m-4 bg-white border-2 border-black p-2 font-bold shadow-neo-sm">
+                            TACTICAL MAP
+                        </div>
+                        <MapView vehicles={vehicles} missions={missions} />
+                    </div>
+
+                </div>
             </div>
         </div>
     );
