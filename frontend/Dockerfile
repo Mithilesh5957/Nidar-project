@@ -1,7 +1,9 @@
 # Build Stage
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
+# Force development environment to ensure devDependencies (vite) are installed
+ENV NODE_ENV=development
 RUN npm install
 COPY . .
 RUN npm run build
