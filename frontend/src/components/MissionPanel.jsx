@@ -2,47 +2,66 @@ import React from 'react';
 import api from '../services/api';
 
 const MissionPanel = ({ missions, vehicles }) => {
-
-    const handleRTL = async (vehicleId) => {
+    const handleRTL = async (vid) => {
         try {
-            await api.post(`/vehicles/${vehicleId}/command/rtl`);
+            await api.post(`/vehicles/${vid}/rtl`);
+            // voice.speak(`${vid} Returning to Launch`);
         } catch (e) {
             console.error(e);
-            alert("Failed to send RTL");
         }
-    }
+    };
 
     return (
-        <div>
-            <h2 className="text-2xl font-black mb-4 border-b-4 border-black inline-block">MISSIONS</h2>
+        <div className="h-full">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Active Missions</h2>
 
-            {Object.entries(missions).map(([vehicleId, items]) => (
-                <div key={vehicleId} className="mb-4">
-                    <div className="flex justify-between items-center mb-2 bg-black text-white p-1 px-2 border-2 border-white outline outline-2 outline-black">
-                        <h3 className="font-bold uppercase tracking-widest">{vehicleId}</h3>
-                        <button
-                            onClick={() => handleRTL(vehicleId)}
-                            className="bg-neo-orange text-black border-2 border-white px-2 text-xs font-bold hover:bg-white hover:border-black transition-colors"
-                        >
-                            ABORT / RTL
-                        </button>
-                    </div>
+            <div className="space-y-3">
+                {Object.entries(missions).map(([vid, items]) => {
+                    const vehicle = vehicles.find(v => v.id === vid);
+                    if (!items || items.length === 0) return null;
 
-                    {items.length === 0 ? (
-                        <div className="text-xs font-mono border-2 border-black p-2 bg-white/50 text-center">IDLE - NO ORDERS</div>
-                    ) : (
-                        <div className="space-y-1">
-                            {items.map(item => (
-                                <div key={item.seq} className="flex gap-2 text-xs font-mono border-b border-black/20 pb-1">
-                                    <span className="font-bold text-neo-blue">#{item.seq}</span>
-                                    <span className="font-bold">{item.command}</span>
-                                    {item.command === 'WAYPOINT' && <span className="opacity-70">[{item.lat.toFixed(3)}, {item.lon.toFixed(3)}]</span>}
-                                </div>
-                            ))}
+                    return (
+                        <div key={vid} className="bg-white border border-slate-200 rounded-lg p-4 shadow-soft">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="font-bold text-slate-800 uppercase">{vid} MISSION</span>
+                                <span className="text-xs font-mono text-slate-400">{items.length} Hops</span>
+                            </div>
+
+                            {/* Minimal Progress Bar */}
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 mb-4">
+                                <div
+                                    className="bg-accent-blue h-1.5 rounded-full transition-all duration-500"
+                                    style={{ width: '50%' }} // Mock progress
+                                ></div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                {items.map((step, idx) => (
+                                    <div key={idx} className="bg-slate-50 rounded p-1 text-center">
+                                        <span className={`text-[10px] font-bold ${step.command === 'TAKEOFF' ? 'text-accent-blue' : 'text-slate-600'}`}>
+                                            {step.command === 'TAKEOFF' ? 'TO' : `WP${step.seq}`}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => handleRTL(vid)}
+                                    className="text-xs font-bold text-accent-red hover:bg-red-50 px-3 py-1 rounded transition-colors"
+                                >
+                                    ABORT / RTL
+                                </button>
+                            </div>
                         </div>
-                    )}
-                </div>
-            ))}
+                    );
+                })}
+                {Object.keys(missions).length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                        No active missions
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

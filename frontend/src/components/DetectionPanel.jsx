@@ -2,49 +2,45 @@ import React from 'react';
 import api from '../services/api';
 
 const DetectionPanel = ({ detections }) => {
-
     const handleApprove = async (id) => {
         try {
             await api.post(`/detections/${id}/approve`);
-        } catch (error) {
-            console.error("Failed to approve detection:", error);
-            alert("Failed to approve detection");
+        } catch (e) {
+            console.error(e);
         }
     };
 
     return (
-        <div>
-            <h2 className="text-2xl font-black mb-4 border-b-4 border-black inline-block text-white bg-black px-2">DETECTIONS</h2>
-
-            {detections.length === 0 && <div className="text-black font-bold italic opacity-50">SCANNING AREA...</div>}
-
-            <div className="space-y-4">
+        <div className="h-full">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Recent Detections</h2>
+            <div className="flex flex-col gap-3 h-[300px] overflow-y-auto">
+                {detections.length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-sm">No targets detected</div>
+                )}
                 {detections.map(d => (
-                    <div key={d.id} className="bg-white border-2 border-black p-2 shadow-neo-sm transform transition hover:-translate-y-1">
-                        <div className="relative border-2 border-black mb-2">
-                            <img src={d.imageUrl} alt="Detection" className="w-full h-32 object-cover grayscale contrast-125 hover:grayscale-0 transition-all" />
-                            <div className="absolute top-0 right-0 bg-neo-yellow border-l-2 border-b-2 border-black px-2 font-bold text-xs">
-                                {(d.confidence * 100).toFixed(0)}%
-                            </div>
+                    <div key={d.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-soft flex">
+                        <div className="w-24 h-24 bg-slate-100 relative shrink-0">
+                            <img src={d.imageUrl} alt="Detection" className="w-full h-full object-cover mix-blend-multiply" />
                         </div>
-
-                        <div className="flex justify-between items-end">
-                            <div className="text-xs font-mono font-bold leading-tight">
-                                {d.vehicleId.toUpperCase()}<br />
-                                LAT: {d.lat.toFixed(4)}<br />
-                                LON: {d.lon.toFixed(4)}
+                        <div className="p-3 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">{new Date(d.timestamp).toLocaleTimeString()}</span>
+                                    <span className="text-xs font-bold text-accent-blue">{Math.round(d.confidence)}% CONF</span>
+                                </div>
+                                <h4 className="font-bold text-slate-800 text-sm mt-1">HUMAN DETECTED</h4>
                             </div>
 
                             {d.approved ? (
-                                <div className="bg-neo-green text-white border-2 border-black px-2 py-1 font-black text-sm rotate-[-5deg]">
-                                    APPROVED
+                                <div className="text-xs font-bold text-green-600 flex items-center gap-1">
+                                    <span>✓ ENGAGED</span>
                                 </div>
                             ) : (
                                 <button
-                                    className="bg-neo-lime hover:bg-neo-green active:translate-y-1 active:shadow-none border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] px-3 py-1 font-black text-sm uppercase transition-all"
                                     onClick={() => handleApprove(d.id)}
+                                    className="w-full bg-slate-900 text-white text-xs font-bold py-2 rounded hover:bg-slate-800 transition-colors"
                                 >
-                                    ENGAGE
+                                    ENGAGE TARGET
                                 </button>
                             )}
                         </div>
