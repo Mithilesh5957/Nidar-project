@@ -1,39 +1,23 @@
-# Security Implementation
+# Security Considerations
 
-## 1. Generating API Keys
-Run this Python snippet to generate secure keys for your drones:
-```python
-import secrets
-print(secrets.token_hex(32))
-# Example Output: 8f92b...
-```
+## 🔒 Network Security
 
-## 2. Backend Validation (FastAPI)
-Add this dependency to your FastAPI routes:
+The current implementation is designed for rapid deployment and ease of use. For production environments, the following layers should be added:
 
-```python
-from fastapi import Header, HTTPException
+### 1. Transport Layer Security (TLS/SSL)
+Never expose the GCS over plain HTTP in a public environment. Use an **Nginx Reverse Proxy** with Let's Encrypt certificates to ensure all traffic is encrypted (HTTPS/WSS).
 
-API_KEYS = {
-    "scout": "scout_secret",
-    "delivery": "delivery_secret"
-}
+### 2. Network Isolation (VPN)
+For high-security operations, do not expose ports 80/8080 to the public internet. Instead, use a private VPN mesh network like **Tailscale** or **ZeroTier**.
+- Install Tailscale on the Cloud VPS.
+- Install Tailscale on all Drone Companions (Raspberry Pis).
+- Configure the Drone Agents to report to the VPS's Tailscale IP (e.g., `100.x.y.z`).
+- This makes the entire C2 link invisible to the public internet.
 
-async def verify_key(x_api_key: str = Header(...), vehicle_id: str = Path(...)):
-    expected = API_KEYS.get(vehicle_id)
-    if x_api_key != expected:
-        raise HTTPException(status_code=403, detail="Invalid API Key")
-```
+## 🔑 Authentication (Roadmap)
 
-usage:
-```python
-@app.post("/api/upload/{vehicle_id}")
-async def upload(..., authorized: bool = Depends(verify_key)):
-    pass
-```
+Currently, the system uses an open API model suitable for private networks.
 
-## 3. Operator Authentication (JWT)
-For future: Implement `python-jose` to issue JWTs on login.
-1. `POST /login` -> returns `access_token`.
-2. Frontend sends `Authorization: Bearer <token>`.
-3. Backend validates token on sensitive endpoints (e.g. Mission Upload).
+**Future Enhancements:**
+- **API Keys**: Implement an `x-api-key` header check in a Spring Boot Filter for all `/api/` endpoints.
+- **User Login**: Add Spring Security with JWT tokens to restrict Dashboard access to authorized personnel only.
