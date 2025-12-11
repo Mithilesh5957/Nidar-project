@@ -7,9 +7,9 @@ const Layout = () => {
     const location = useLocation();
 
     const navItems = [
-        { name: 'Dashboard', path: '/' },
-        { name: 'Mission Planner', path: '/planner' },
-        { name: 'Intelligence', path: '/intel' }
+        { name: 'Dashboard', path: '/app' },
+        { name: 'Mission Planner', path: '/app/planner' },
+        { name: 'Intelligence', path: '/app/intel' }
     ];
 
     return (
@@ -33,6 +33,7 @@ const Layout = () => {
                         <NavLink
                             key={item.path}
                             to={item.path}
+                            end={item.path === '/app'}
                             className={({ isActive }) => `px-4 py-2 rounded-md text-sm font-bold transition-all ${isActive ? 'bg-white text-accent-blue shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             {item.name}
@@ -44,7 +45,7 @@ const Layout = () => {
             </header>
 
             {/* Main Content Area */}
-            <main className="flex-1 p-6 overflow-hidden">
+            <main className="flex-1 p-6">
                 <Outlet />
             </main>
         </div>

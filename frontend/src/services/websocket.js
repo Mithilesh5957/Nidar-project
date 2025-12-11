@@ -1,53 +1,49 @@
-import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { Stomp } from '@stomp/stompjs';
 
-class WebSocketService {
-    constructor() {
-        this.client = null;
-        this.callbacks = {}; // topic -> [callback]
-    }
+const gcsWebSocket = {
+    client: null,
+    callbacks: {},
 
-    connect(onConnect) {
-        this.client = new Client({
-            // Use SockJS fallback
-            webSocketFactory: () => new SockJS('http://localhost:8080/ws-gcs'),
-            onConnect: (frame) => {
-                console.log('Connected: ' + frame);
-                if (onConnect) onConnect();
-                this._resubscribe();
-            },
-            onStompError: (frame) => {
-                console.error('Broker reported error: ' + frame.headers['message']);
-                console.error('Additional details: ' + frame.body);
-            },
+    connect: (onConnected) => {
+        // Spring Boot uses SockJS at /ws-gcs
+        // Ensure we are pointing to the right place relative to current window
+        const socket = new SockJS('/ws-gcs');
+        const client = Stomp.over(socket);
+
+        // Disable debug logs for cleaner console
+        client.debug = () => { };
+
+        client.connect({}, (frame) => {
+            console.log('Connected: ' + frame);
+            if (onConnected) onConnected();
+
+            // Resubscribe to existing topics if reconnection happens
+            Object.keys(gcsWebSocket.callbacks).forEach(topic => {
+                client.subscribe(topic, (message) => {
+                    const payload = JSON.parse(message.body);
+                    gcsWebSocket.callbacks[topic](payload);
+                });
+            });
+
+        }, (err) => {
+            console.error('WebSocket Error:', err);
+            // Reconnect logic could go here
         });
 
-        this.client.activate();
-    }
+        gcsWebSocket.client = client;
+    },
 
-    subscribe(topic, callback) {
-        if (!this.callbacks[topic]) {
-            this.callbacks[topic] = [];
-        }
-        this.callbacks[topic].push(callback);
+    subscribe: (topic, callback) => {
+        if (!gcsWebSocket.callbacks) gcsWebSocket.callbacks = {};
+        gcsWebSocket.callbacks[topic] = callback;
 
-        if (this.client && this.client.connected) {
-            this.client.subscribe(topic, (message) => {
+        if (gcsWebSocket.client && gcsWebSocket.client.connected) {
+            gcsWebSocket.client.subscribe(topic, (message) => {
                 callback(JSON.parse(message.body));
             });
         }
     }
+};
 
-    _resubscribe() {
-        for (const topic in this.callbacks) {
-            this.callbacks[topic].forEach(callback => {
-                this.client.subscribe(topic, (message) => {
-                    callback(JSON.parse(message.body));
-                });
-            });
-        }
-    }
-}
-
-const gcsWebSocket = new WebSocketService();
 export default gcsWebSocket;

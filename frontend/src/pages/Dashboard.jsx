@@ -9,7 +9,7 @@ const Dashboard = () => {
     const { vehicles, missions } = useGCS();
 
     return (
-        <div className="grid grid-cols-12 gap-6 h-full">
+        <div className="grid grid-cols-12 gap-6 h-[85vh] min-h-[600px]">
             {/* Left Sidebar - Quick Stats */}
             <div className="col-span-3 flex flex-col gap-6 h-full overflow-y-auto pr-1">
                 <div className="bg-white rounded-xl shadow-soft border border-slate-200 p-1">

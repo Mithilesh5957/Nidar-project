@@ -1,28 +1,35 @@
 version: '3.8'
-
 services:
   backend:
     build: 
       context: ./backend
-      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:
       - ./uploads:/app/uploads
-    networks:
-      - gcs-network
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=mysql+mysqlconnector://root:root@db:3306/nidargcs
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nidargcs
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     ports:
       - "80:80"
     depends_on:
       - backend
-    networks:
-      - gcs-network
 
-networks:
-  gcs-network:
-    driver: bridge
+volumes:
+  mysql_data:
