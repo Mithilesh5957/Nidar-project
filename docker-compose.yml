@@ -10,7 +10,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=mysql+mysqlconnector://root:root@db:3306/nidargcs
+      - DATABASE_URL=jdbc:mysql://db:3306/nidargcs?allowPublicKeyRetrieval=true&useSSL=false
 
   db:
     image: mysql:8.0
