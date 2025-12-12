@@ -46,6 +46,7 @@ public class VehicleService {
 
     public void updateTelemetry(String id, double lat, double lon, double alt, double heading, double battery,
             String status) {
+        if (id == null) return;
         Vehicle v = vehicleRepo.findById(id).orElse(null);
         if (v != null) {
             v.setLat(lat);
@@ -53,7 +54,7 @@ public class VehicleService {
             v.setAlt(alt);
             v.setHeading(heading);
             v.setBattery(battery);
-            v.setStatus(status);
+            v.setStatus(status != null ? status : "UNKNOWN");
             v.setLastHeartbeat(System.currentTimeMillis());
 
             vehicleRepo.save(v); // Update current state

@@ -48,7 +48,8 @@ public class MissionService {
     }
 
     public List<MissionItem> getMission(String vehicleId) {
-        return missionRepo.findByVehicleIdOrderBySeqAsc(vehicleId);
+        List<MissionItem> mission = missionRepo.findByVehicleIdOrderBySeqAsc(vehicleId);
+        return mission != null ? mission : List.of();
     }
 
     @Transactional

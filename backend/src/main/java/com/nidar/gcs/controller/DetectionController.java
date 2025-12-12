@@ -38,11 +38,15 @@ public class DetectionController {
             @RequestParam("confidence") double confidence) {
 
         String filename = storageService.store(file);
+        if (filename == null) filename = "unknown";
 
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+        String path = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/uploads/")
                 .path(filename)
                 .toUriString();
+        
+        // Ensure path is not null (though toUriString shouldn't be null)
+        String fileDownloadUri = (path != null) ? path : "";
 
         Detection detection = new Detection(
                 UUID.randomUUID().toString(),
@@ -76,9 +80,10 @@ public class DetectionController {
             // Generate Mission for Delivery Drone
             missionService.generateMissionForDetection(d, "delivery");
             List<MissionItem> newMission = missionService.getMission("delivery");
-
-            // Broadcast Mission Update
-            messagingTemplate.convertAndSend("/topic/missions/delivery", newMission);
+            if (newMission != null) {
+                // Broadcast Mission Update
+                messagingTemplate.convertAndSend("/topic/missions/delivery", newMission);
+            }
 
             // Broadcast Detection Update (Approved status)
             messagingTemplate.convertAndSend("/topic/detections", d);
