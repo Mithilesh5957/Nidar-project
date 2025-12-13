@@ -55,8 +55,13 @@ public class VehicleController {
         if (mission != null) {
             missionService.setMission(id, mission);
             messagingTemplate.convertAndSend("/topic/missions/" + id, mission);
-            // mavlinkService.sendMission(id, mission); // Future: Implement sendMission
+            mavlinkService.sendMission(id, mission);
         }
+    }
+    
+    @PostMapping("/{id}/command/mode")
+    public void setMode(@PathVariable String id, @RequestParam String mode) {
+        mavlinkService.setMode(id, mode);
     }
 
     @PostMapping("/{id}/mission-fetch")
@@ -94,5 +99,9 @@ public class VehicleController {
     @PostMapping("/{id}/command/stream")
     public void requestStream(@PathVariable String id) {
         mavlinkService.requestDataStream(id);
+    }
+    @GetMapping("/diagnostics")
+    public java.util.Map<String, Object> getDiagnostics() {
+        return mavlinkService.getDiagnostics();
     }
 }

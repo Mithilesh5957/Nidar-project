@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.lang.NonNull;
 import java.util.List;
 
 @Service
@@ -41,6 +42,7 @@ public class VehicleService {
     }
 
     public Vehicle getVehicle(String id) {
+        if (id == null) return null;
         return vehicleRepo.findById(id).orElse(null);
     }
 
@@ -68,7 +70,7 @@ public class VehicleService {
         return telemetryRepo.findByVehicleId(id);
     }
 
-    public void addDetection(Detection detection) {
+    public void addDetection(@NonNull Detection detection) {
         detectionRepo.save(detection);
     }
 
@@ -77,6 +79,7 @@ public class VehicleService {
     }
 
     public Detection getDetection(String id) {
+        if (id == null) return null;
         return detectionRepo.findById(id).orElse(null);
     }
 }

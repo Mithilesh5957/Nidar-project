@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.lang.NonNull;
+
 @Service
 public class MissionService {
 
@@ -23,26 +25,26 @@ public class MissionService {
 
         List<MissionItem> mission = new ArrayList<>();
 
-        // 1. Takeoff to safe altitude (e.g. 30m)
-        mission.add(createItem(targetVehicleId, 1, "TAKEOFF", 0, 0, 30));
+        // 1. Takeoff to safe altitude (e.g. 30m) - MAV_CMD_NAV_TAKEOFF (22)
+        mission.add(createItem(targetVehicleId, 1, 22, 0, 0, 30));
 
-        // 2. Fly to detection location
-        mission.add(createItem(targetVehicleId, 2, "WAYPOINT", detection.getLat(), detection.getLon(), 30));
+        // 2. Fly to detection location - MAV_CMD_NAV_WAYPOINT (16)
+        mission.add(createItem(targetVehicleId, 2, 16, detection.getLat(), detection.getLon(), 30));
 
         // 3. Descend for drop (e.g. 10m)
-        mission.add(createItem(targetVehicleId, 3, "WAYPOINT", detection.getLat(), detection.getLon(), 10));
+        mission.add(createItem(targetVehicleId, 3, 16, detection.getLat(), detection.getLon(), 10));
 
-        // 4. Drop payload (Servo command placeholder)
-        MissionItem drop = createItem(targetVehicleId, 4, "DO_SET_SERVO", 0, 0, 0);
-        drop.setP1(9);
-        drop.setP2(1100);
+        // 4. Drop payload (Servo command placeholder) - MAV_CMD_DO_SET_SERVO (183)
+        MissionItem drop = createItem(targetVehicleId, 4, 183, 0, 0, 0);
+        drop.setParam1(9); // Servo Instance
+        drop.setParam2(1100); // PWM
         mission.add(drop);
 
         // 5. Ascend back to safe altitude
-        mission.add(createItem(targetVehicleId, 5, "WAYPOINT", detection.getLat(), detection.getLon(), 30));
+        mission.add(createItem(targetVehicleId, 5, 16, detection.getLat(), detection.getLon(), 30));
 
-        // 6. RTL
-        mission.add(createItem(targetVehicleId, 6, "RTL", 0, 0, 0));
+        // 6. RTL - MAV_CMD_NAV_RETURN_TO_LAUNCH (20)
+        mission.add(createItem(targetVehicleId, 6, 20, 0, 0, 0));
 
         missionRepo.saveAll(mission);
     }
@@ -53,7 +55,7 @@ public class MissionService {
     }
 
     @Transactional
-    public void setMission(String vehicleId, List<MissionItem> mission) {
+    public void setMission(String vehicleId, @NonNull List<MissionItem> mission) {
         missionRepo.deleteByVehicleId(vehicleId);
         for (MissionItem item : mission) {
             item.setVehicleId(vehicleId);
@@ -61,9 +63,17 @@ public class MissionService {
         missionRepo.saveAll(mission);
     }
 
-    private MissionItem createItem(String vehicleId, int seq, String cmd, double lat, double lon, double alt) {
-        MissionItem item = new MissionItem(seq, cmd, lat, lon, alt, 0, 0, 0, 0);
+    private MissionItem createItem(String vehicleId, int seq, int cmd, double lat, double lon, double alt) {
+        MissionItem item = new MissionItem();
         item.setVehicleId(vehicleId);
+        item.setSeq(seq);
+        item.setCommand(cmd);
+        item.setFrame(3); // MAV_FRAME_GLOBAL_RELATIVE_ALT
+        item.setCurrent(seq == 0 ? 1 : 0); // Logic can be improved if sequence is 0
+        item.setAutocontinue(1);
+        item.setX(lat);
+        item.setY(lon);
+        item.setZ((float)alt);
         return item;
     }
 }
