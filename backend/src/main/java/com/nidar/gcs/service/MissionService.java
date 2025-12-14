@@ -4,6 +4,7 @@ import com.nidar.gcs.model.Detection;
 import com.nidar.gcs.model.Mission;
 import com.nidar.gcs.model.MissionItem;
 import com.nidar.gcs.model.Waypoint;
+import com.nidar.gcs.repository.MissionItemRepository;
 import com.nidar.gcs.repository.MissionRepository;
 import com.nidar.gcs.repository.WaypointRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class MissionService {
 
     private final MissionRepository missionRepository;
     private final WaypointRepository waypointRepository;
+    private final MissionItemRepository missionItemRepository;
     private final MAVProxyService mavProxyService;
 
     @Transactional
@@ -132,36 +134,71 @@ public class MissionService {
     private final Map<String, List<MissionItem>> vehicleMissions = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Legacy method: Set mission items for a vehicle
-     */
-    public void setMission(String vehicleId, List<MissionItem> missionItems) {
-        log.info("Setting mission for vehicle {}: {} items", vehicleId, missionItems.size());
-        vehicleMissions.put(vehicleId, missionItems);
-    }
-
-    /**
-     * Legacy method: Get mission items for a vehicle
+     * Legacy method: Get mission items for a vehicle (from database)
      */
     public List<MissionItem> getMission(String vehicleId) {
-        return vehicleMissions.getOrDefault(vehicleId, new ArrayList<>());
+        List<MissionItem> mission = missionItemRepository.findByVehicleIdOrderBySeqAsc(vehicleId);
+        return mission != null ? mission : List.of();
     }
 
     /**
-     * Legacy method: Generate mission for a detection target
+     * Legacy method: Set mission items for a vehicle (saves to database)
      */
-    public void generateMissionForDetection(Detection detection, String vehicleId) {
-        log.info("Generating mission for detection {} to vehicle {}", detection.getId(), vehicleId);
+    @Transactional
+    public void setMission(String vehicleId, @NonNull List<MissionItem> mission) {
+        missionItemRepository.deleteByVehicleId(vehicleId);
+        for (MissionItem item : mission) {
+            item.setVehicleId(vehicleId);
+        }
+        missionItemRepository.saveAll(mission);
+    }
+
+    /**
+     * Generate mission for a detection target with full MAVLink commands
+     * Includes: Takeoff -> Navigate -> Descend -> Drop Payload -> Ascend -> RTL
+     */
+    public void generateMissionForDetection(Detection detection, String targetVehicleId) {
+        log.info("Generating mission for detection {} to vehicle {}", detection.getId(), targetVehicleId);
         List<MissionItem> mission = new ArrayList<>();
 
-        // Takeoff
-        mission.add(new MissionItem(0, "TAKEOFF", 0, 0, 50, 0, 0, 0, 0));
+        // 1. Takeoff to safe altitude (e.g. 30m) - MAV_CMD_NAV_TAKEOFF (22)
+        mission.add(createItem(targetVehicleId, 1, 22, 0, 0, 30));
 
-        // Navigate to detection location
-        mission.add(new MissionItem(1, "WAYPOINT", detection.getLat(), detection.getLon(), 50, 0, 0, 0, 0));
+        // 2. Fly to detection location - MAV_CMD_NAV_WAYPOINT (16)
+        mission.add(createItem(targetVehicleId, 2, 16, detection.getLat(), detection.getLon(), 30));
 
-        // Land
-        mission.add(new MissionItem(2, "LAND", detection.getLat(), detection.getLon(), 0, 0, 0, 0, 0));
+        // 3. Descend for drop (e.g. 10m)
+        mission.add(createItem(targetVehicleId, 3, 16, detection.getLat(), detection.getLon(), 10));
 
-        setMission(vehicleId, mission);
+        // 4. Drop payload (Servo command placeholder) - MAV_CMD_DO_SET_SERVO (183)
+        MissionItem drop = createItem(targetVehicleId, 4, 183, 0, 0, 0);
+        drop.setParam1(9); // Servo Instance
+        drop.setParam2(1100); // PWM
+        mission.add(drop);
+
+        // 5. Ascend back to safe altitude
+        mission.add(createItem(targetVehicleId, 5, 16, detection.getLat(), detection.getLon(), 30));
+
+        // 6. RTL - MAV_CMD_NAV_RETURN_TO_LAUNCH (20)
+        mission.add(createItem(targetVehicleId, 6, 20, 0, 0, 0));
+
+        missionItemRepository.saveAll(mission);
+    }
+
+    /**
+     * Helper method to create a MissionItem with MAVLink-compatible fields
+     */
+    private MissionItem createItem(String vehicleId, int seq, int cmd, double lat, double lon, double alt) {
+        MissionItem item = new MissionItem();
+        item.setVehicleId(vehicleId);
+        item.setSeq(seq);
+        item.setCommand(cmd);
+        item.setFrame(3); // MAV_FRAME_GLOBAL_RELATIVE_ALT
+        item.setCurrent(seq == 1 ? 1 : 0); // First mission item is current
+        item.setAutocontinue(1);
+        item.setX(lat);
+        item.setY(lon);
+        item.setZ((float) alt);
+        return item;
     }
 }

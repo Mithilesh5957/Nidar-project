@@ -10,5 +10,7 @@ import java.util.List;
 public interface MissionItemRepository extends JpaRepository<MissionItem, Long> {
     List<MissionItem> findByVehicleId(String vehicleId);
 
+    List<MissionItem> findByVehicleIdOrderBySeqAsc(String vehicleId);
+
     void deleteByVehicleId(String vehicleId);
 }
