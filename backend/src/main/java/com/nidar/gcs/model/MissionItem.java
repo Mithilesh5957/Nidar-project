@@ -20,26 +20,21 @@ public class MissionItem {
     private Long id;
 
     private String vehicleId;
+    
     private int seq;
-    private String command;
-    private double lat;
-    private double lon;
-    private double alt;
-    private double p1;
-    private double p2;
-    private double p3;
-    private double p4;
-
-    public MissionItem(int seq, String command, double lat, double lon, double alt, double p1, double p2, double p3,
-            double p4) {
-        this.seq = seq;
-        this.command = command;
-        this.lat = lat;
-        this.lon = lon;
-        this.alt = alt;
-        this.p1 = p1;
-        this.p2 = p2;
-        this.p3 = p3;
-        this.p4 = p4;
-    }
+    private int frame;
+    private int command;
+    private int current;
+    private int autocontinue;
+    
+    private float param1;
+    private float param2;
+    private float param3;
+    private float param4;
+    
+    // MAVLink uses x/y/z for generic coordinates. 
+    // For GLOBAL frames, x=lat, y=lon, z=alt.
+    private double x;
+    private double y;
+    private float z;
 }

@@ -3,6 +3,7 @@ package com.nidar.gcs.controller;
 import com.nidar.gcs.model.MissionItem;
 import com.nidar.gcs.model.TelemetryPoint;
 import com.nidar.gcs.model.Vehicle;
+import com.nidar.gcs.service.MavlinkService;
 import com.nidar.gcs.service.MissionService;
 import com.nidar.gcs.service.VehicleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +11,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vehicles")
@@ -21,6 +21,9 @@ public class VehicleController {
 
     @Autowired
     private MissionService missionService;
+
+    @Autowired
+    private MavlinkService mavlinkService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -36,7 +39,10 @@ public class VehicleController {
                 telemetry.getHeading(), telemetry.getBattery(), telemetry.getStatus());
 
         // Broadcast to WebSocket
-        messagingTemplate.convertAndSend("/topic/telemetry/" + id, vehicleService.getVehicle(id));
+        Vehicle v = vehicleService.getVehicle(id);
+        if (v != null) {
+            messagingTemplate.convertAndSend("/topic/telemetry/" + id, v);
+        }
     }
 
     @GetMapping("/{id}/telemetry-history")
@@ -46,29 +52,56 @@ public class VehicleController {
 
     @PostMapping("/{id}/mission-upload")
     public void uploadMission(@PathVariable String id, @RequestBody List<MissionItem> mission) {
-        missionService.setMission(id, mission);
-        messagingTemplate.convertAndSend("/topic/missions/" + id, mission);
-        // TODO: In real MAVLink integration, this would send to MAVLink agent
+        if (mission != null) {
+            missionService.setMission(id, mission);
+            messagingTemplate.convertAndSend("/topic/missions/" + id, mission);
+            mavlinkService.sendMission(id, mission);
+        }
+    }
+    
+    @PostMapping("/{id}/command/mode")
+    public void setMode(@PathVariable String id, @RequestParam String mode) {
+        mavlinkService.setMode(id, mode);
     }
 
     @PostMapping("/{id}/mission-fetch")
     public List<MissionItem> fetchMission(@PathVariable String id) {
-        // TODO: In real MAVLink integration, this might query the drone.
+        // In real MAVLink integration, this might query the drone.
         // For now, return what we have in memory.
         return missionService.getMission(id);
     }
 
     @PostMapping("/{id}/command/rtl")
     public void sendRTL(@PathVariable String id) {
-        // TODO: Forward to MAVLink
-        System.out.println("Sending RTL command to " + id);
-        // Broadcast status update for simulation
-        vehicleService.updateTelemetry(id, 0, 0, 0, 0, 0, "RTL"); // Not resetting coords, just status logic
-        // Only update status string in reality
-        Vehicle v = vehicleService.getVehicle(id);
-        if (v != null) {
-            v.setStatus("RTL");
-            messagingTemplate.convertAndSend("/topic/telemetry/" + id, v);
-        }
+        mavlinkService.returnToLaunch(id);
+    }
+
+    @PostMapping("/{id}/command/arm")
+    public void arm(@PathVariable String id) {
+        mavlinkService.armVehicle(id);
+    }
+
+    @PostMapping("/{id}/command/disarm")
+    public void disarm(@PathVariable String id) {
+        mavlinkService.disarmVehicle(id);
+    }
+
+    @PostMapping("/{id}/command/takeoff")
+    public void takeoff(@PathVariable String id, @RequestParam(defaultValue = "10") float altitude) {
+        mavlinkService.takeoff(id, altitude);
+    }
+    
+    @PostMapping("/{id}/command/goto")
+    public void goToPosition(@PathVariable String id, @RequestParam double lat, @RequestParam double lon, @RequestParam(defaultValue = "10") float alt) {
+        mavlinkService.reposition(id, lat, lon, alt);
+    }
+
+    @PostMapping("/{id}/command/stream")
+    public void requestStream(@PathVariable String id) {
+        mavlinkService.requestDataStream(id);
+    }
+    @GetMapping("/diagnostics")
+    public java.util.Map<String, Object> getDiagnostics() {
+        return mavlinkService.getDiagnostics();
     }
 }

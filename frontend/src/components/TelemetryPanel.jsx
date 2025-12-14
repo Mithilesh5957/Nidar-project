@@ -1,12 +1,19 @@
 import React from 'react';
 
-const TelemetryPanel = ({ vehicles }) => {
+const TelemetryPanel = ({ vehicles, selectedId, onSelect }) => {
     return (
         <div className="h-full">
             <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Fleet Status</h2>
             <div className="flex flex-col gap-3">
                 {vehicles.map(v => (
-                    <div key={v.id} className="bg-white border border-slate-200 rounded-lg p-4 shadow-soft hover:shadow-medium transition-shadow">
+                    <div
+                        key={v.id}
+                        onClick={() => onSelect && onSelect(v.id)}
+                        className={`bg-white border rounded-lg p-4 shadow-soft transition-all cursor-pointer ${selectedId === v.id
+                                ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+                                : 'border-slate-200 hover:shadow-medium hover:border-slate-300'
+                            }`}
+                    >
                         <div className="flex justify-between items-start mb-2">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-800 uppercase leading-none">{v.id}</h3>
