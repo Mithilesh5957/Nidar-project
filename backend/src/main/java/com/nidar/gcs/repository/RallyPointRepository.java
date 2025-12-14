@@ -1,9 +1,9 @@
 package com.nidar.gcs.repository;
 
-import com.nidar.gcs.model.Mission;
+import com.nidar.gcs.model.RallyPoint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface MissionRepository extends JpaRepository<Mission, Long> {
+public interface RallyPointRepository extends JpaRepository<RallyPoint, Long> {
 }

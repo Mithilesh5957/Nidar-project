@@ -4,7 +4,7 @@ import com.nidar.gcs.model.Detection;
 import com.nidar.gcs.model.TelemetryPoint;
 import com.nidar.gcs.model.Vehicle;
 import com.nidar.gcs.repository.DetectionRepository;
-import com.nidar.gcs.repository.TelemetryRepository;
+import com.nidar.gcs.repository.TelemetryPointRepository;
 import com.nidar.gcs.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,7 @@ public class VehicleService {
     private VehicleRepository vehicleRepo;
 
     @Autowired
-    private TelemetryRepository telemetryRepo;
+    private TelemetryPointRepository telemetryRepo;
 
     @Autowired
     private DetectionRepository detectionRepo;
