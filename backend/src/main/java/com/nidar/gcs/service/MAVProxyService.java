@@ -24,9 +24,13 @@ public class MAVProxyService {
     @Value("${mavproxy.port:14550}")
     private int mavproxyPort;
 
+    @Value("${mavlink.simulation.enabled:true}")
+    private boolean simulationEnabled;
+
     private final SimpMessagingTemplate messagingTemplate;
     private final TelemetryService telemetryService;
     private final MAVLinkMessageService mavLinkMessageService;
+    private final MissionExecutionService missionExecutionService;
 
     private DatagramSocket udpSocket;
     private InetAddress mavproxyAddress;
@@ -35,16 +39,23 @@ public class MAVProxyService {
 
     public MAVProxyService(SimpMessagingTemplate messagingTemplate,
             TelemetryService telemetryService,
-            MAVLinkMessageService mavLinkMessageService) {
+            MAVLinkMessageService mavLinkMessageService,
+            MissionExecutionService missionExecutionService) {
         this.messagingTemplate = messagingTemplate;
         this.telemetryService = telemetryService;
         this.mavLinkMessageService = mavLinkMessageService;
+        this.missionExecutionService = missionExecutionService;
     }
 
     @PostConstruct
     public void init() {
-        log.info("MAVProxyService initializing - auto-connecting to QGC...");
-        connect();
+        if (simulationEnabled) {
+            log.info("MAVLink simulation enabled - auto-connecting to QGC...");
+            connect();
+        } else {
+            log.info(
+                    "MAVLink simulation disabled - virtual drone will not be started. Connect your real drone to QGC.");
+        }
     }
 
     public boolean connect() {
@@ -57,11 +68,53 @@ public class MAVProxyService {
 
             connected = true;
             log.info("Successfully connected to MAVProxy");
+
+            // Send basic firmware parameters to satisfy QGC
+            sendInitialParameters();
+
             return true;
         } catch (Exception e) {
             log.error("Failed to connect to MAVProxy", e);
             connected = false;
             return false;
+        }
+    }
+
+    /**
+     * Send initial firmware parameters to QGC to satisfy parameter requirements
+     */
+    private void sendInitialParameters() {
+        if (udpSocket == null || mavproxyAddress == null) {
+            return;
+        }
+
+        try {
+            // Basic ArduPilot parameters that QGC expects
+            String[][] params = {
+                    { "FS_OPTIONS", "0" }, // Failsafe options
+                    { "H12_OOS_ENABLE", "0" }, // Heli out-of-sync enable
+                    { "H12_OOS_THRESHOLD", "0" }, // Heli out-of-sync threshold
+                    { "SYSID_THISMAV", "1" }, // MAVLink system ID
+                    { "SYSID_MYGCS", "255" }, // Ground station system ID
+                    { "FLTMODE1", "0" }, // Flight mode 1
+                    { "FLTMODE2", "2" }, // Flight mode 2
+                    { "FLTMODE3", "3" }, // Flight mode 3
+                    { "RTL_ALT", "100" }, // RTL altitude (cm)
+                    { "WP_YAW_BEHAVIOR", "0" }, // Yaw behavior at waypoints
+            };
+
+            int paramCount = params.length;
+            for (int i = 0; i < params.length; i++) {
+                String paramName = params[i][0];
+                float paramValue = Float.parseFloat(params[i][1]);
+                mavLinkMessageService.sendParamValue(udpSocket, mavproxyAddress, mavproxyPort,
+                        paramName, paramValue, i, paramCount);
+                Thread.sleep(10); // Small delay between parameters
+            }
+
+            log.info("Sent {} initial parameters to QGC", paramCount);
+        } catch (Exception e) {
+            log.error("Failed to send initial parameters", e);
         }
     }
 
@@ -85,6 +138,10 @@ public class MAVProxyService {
      * Update telemetry data every second
      * Sends active MAVLink data to QGC (Heartbeat + Position) and WebSocket updates
      * to Frontend.
+     * 
+     * When simulation=false: Processes mission execution but doesn't send virtual
+     * drone telemetry
+     * When simulation=true: Sends virtual drone telemetry to QGC
      */
     @Scheduled(fixedRate = 1000) // Update every second
     public void updateTelemetry() {
@@ -92,41 +149,66 @@ public class MAVProxyService {
             return;
         }
 
-        // SIMULATION MODE: Generate fake telemetry for testing
-        // In production with real MAVProxy, this would parse actual MAVLink messages
-        Telemetry telemetry = generateSimulatedTelemetry();
+        // Update mission execution (if active) - works for both real and virtual
+        missionExecutionService.update();
+
+        // Generate telemetry based on mission execution or default position
+        Telemetry telemetry = generateTelemetry();
         telemetryService.saveTelemetry(telemetry);
 
         // Send telemetry via WebSocket to frontend
         messagingTemplate.convertAndSend("/topic/telemetry", telemetry);
 
-        // Send MAVLink updates to QGC (Mission Planner)
-        try {
-            if (udpSocket != null && !udpSocket.isClosed()) {
-                // 1. Send Heartbeat (Required for QGC to see connection)
-                mavLinkMessageService.sendHeartbeat(udpSocket, mavproxyAddress, mavproxyPort);
+        // Only send MAVLink updates if simulation is enabled (virtual drone)
+        // Real drone sends its own MAVLink via hardware/QGC
+        if (simulationEnabled) {
+            // Send MAVLink updates to QGC (Mission Planner)
+            try {
+                if (udpSocket != null && !udpSocket.isClosed()) {
+                    // 1. Send Heartbeat (Required for QGC to see connection)
+                    mavLinkMessageService.sendHeartbeat(udpSocket, mavproxyAddress, mavproxyPort);
 
-                // 2. Send Global Position (Required for map tracking)
-                mavLinkMessageService.sendGlobalPositionInt(udpSocket, mavproxyAddress, mavproxyPort, telemetry);
+                    // 2. Send Global Position (Required for map tracking)
+                    mavLinkMessageService.sendGlobalPositionInt(udpSocket, mavproxyAddress, mavproxyPort, telemetry);
+                }
+            } catch (Exception e) {
+                log.error("Failed to send MAVLink updates to QGC", e);
+                // Don't disconnect, just log error and retry next loop
             }
-        } catch (Exception e) {
-            log.error("Failed to send MAVLink updates to QGC", e);
-            // Don't disconnect, just log error and retry next loop
         }
     }
 
     @NonNull
-    private Telemetry generateSimulatedTelemetry() {
+    private Telemetry generateTelemetry() {
         Telemetry telemetry = new Telemetry();
-        telemetry.setLatitude(40.7128 + (random.nextDouble() - 0.5) * 0.01);
-        telemetry.setLongitude(-74.0060 + (random.nextDouble() - 0.5) * 0.01);
-        telemetry.setAltitude(50.0 + random.nextDouble() * 100);
-        telemetry.setSpeed(5.0 + random.nextDouble() * 15);
-        telemetry.setBattery(100.0 - random.nextDouble() * 20);
-        telemetry.setHeading(random.nextInt(360));
-        telemetry.setSatellites(10 + random.nextInt(5));
-        telemetry.setFlightMode("AUTO");
-        telemetry.setArmed(true);
+
+        // Use mission execution data if mission is active
+        if (missionExecutionService.isMissionActive() || missionExecutionService.isArmed()) {
+            telemetry.setLatitude(missionExecutionService.getLatitude());
+            telemetry.setLongitude(missionExecutionService.getLongitude());
+            telemetry.setAltitude(missionExecutionService.getAltitude());
+            telemetry.setSpeed(missionExecutionService.getSpeed());
+            telemetry.setBattery(missionExecutionService.getBattery());
+            telemetry.setHeading((int) missionExecutionService.getHeading());
+            telemetry.setFlightMode(missionExecutionService.getFlightMode());
+            telemetry.setArmed(missionExecutionService.isArmed());
+        } else {
+            // Drone is idle - use stationary position with random small variations for
+            // realism
+            double baseLatitude = 40.7128;
+            double baseLongitude = -74.0060;
+
+            telemetry.setLatitude(baseLatitude + (random.nextDouble() - 0.5) * 0.0001); // ~10m variation
+            telemetry.setLongitude(baseLongitude + (random.nextDouble() - 0.5) * 0.0001);
+            telemetry.setAltitude(0.0); // On ground
+            telemetry.setSpeed(0.0);
+            telemetry.setBattery(100.0);
+            telemetry.setHeading(0);
+            telemetry.setFlightMode("STABILIZE");
+            telemetry.setArmed(false);
+        }
+
+        telemetry.setSatellites(12 + random.nextInt(3)); // GPS quality
         telemetry.setTimestamp(LocalDateTime.now());
         return telemetry;
     }

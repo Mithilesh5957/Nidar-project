@@ -45,6 +45,7 @@ public class MAVLinkMessageService {
     private static final int CRC_EXTRA_MISSION_COUNT = 221;
     private static final int CRC_EXTRA_MISSION_ITEM_INT = 38;
     private static final int CRC_EXTRA_PARAM_SET = 168;
+    private static final int CRC_EXTRA_PARAM_VALUE = 220;
     private static final int CRC_EXTRA_COMMAND_LONG = 152;
     private static final int CRC_EXTRA_FENCE_POINT = 78;
     private static final int CRC_EXTRA_RALLY_POINT = 138;
@@ -198,6 +199,27 @@ public class MAVLinkMessageService {
 
         log.info("Sent PARAM_SET: {}={}", paramName, paramValue);
         return sendPacket(socket, address, port, 23, buf.array(), CRC_EXTRA_PARAM_SET);
+    }
+
+    /**
+     * Send PARAM_VALUE message (ID 22) - Used to report parameter values to QGC
+     */
+    public boolean sendParamValue(DatagramSocket socket, InetAddress address, int port,
+            String paramName, float paramValue, int paramIndex, int paramCount) {
+        ByteBuffer buf = ByteBuffer.allocate(25).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putFloat(paramValue); // param_value
+        buf.putShort((short) paramCount); // param_count
+        buf.putShort((short) paramIndex); // param_index
+
+        // param_id (16 chars, null-padded)
+        byte[] paramBytes = new byte[16];
+        byte[] nameBytes = paramName.getBytes();
+        System.arraycopy(nameBytes, 0, paramBytes, 0, Math.min(nameBytes.length, 16));
+        buf.put(paramBytes);
+
+        buf.put((byte) 9); // param_type: MAV_PARAM_TYPE_REAL32
+
+        return sendPacket(socket, address, port, 22, buf.array(), CRC_EXTRA_PARAM_VALUE);
     }
 
     /**

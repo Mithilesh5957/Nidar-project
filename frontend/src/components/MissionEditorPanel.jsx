@@ -19,21 +19,39 @@ const MissionEditorPanel = ({ plannedWaypoints, setPlannedWaypoints, onUpload })
             return;
         }
 
-        const missionItems = plannedWaypoints.map((wp, index) => ({
-            seq: index,
-            command: index === 0 ? 'TAKEOFF' : 'WAYPOINT',
-            lat: wp.lat,
-            lon: wp.lon,
-            alt: defaultAlt,
-            param1: 0, param2: 0, param3: 0, param4: 0
-        }));
+        // MAVLink command IDs
+        const MAV_CMD_NAV_WAYPOINT = 16;
+        const MAV_CMD_NAV_TAKEOFF = 22;
+        const MAV_CMD_NAV_LAND = 21;
+
+        const missionItems = plannedWaypoints.map((wp, index) => {
+            const isFirst = index === 0;
+            const isLast = index === plannedWaypoints.length - 1;
+
+            return {
+                seq: index,
+                frame: 3, // MAV_FRAME_GLOBAL_RELATIVE_ALT
+                command: isFirst ? MAV_CMD_NAV_TAKEOFF : (isLast ? MAV_CMD_NAV_LAND : MAV_CMD_NAV_WAYPOINT),
+                current: index === 0 ? 1 : 0,
+                autocontinue: 1,
+                param1: isFirst ? 15 : 0, // Min pitch for takeoff (degrees)
+                param2: 0,
+                param3: 0,
+                param4: 0, // Yaw
+                x: wp.lat,  // Latitude
+                y: wp.lon,  // Longitude  
+                z: defaultAlt // Altitude
+            };
+        });
 
         try {
             await api.post(`/vehicles/${targetVehicle}/mission-upload`, missionItems);
+            alert(`✅ Mission uploaded successfully! ${missionItems.length} waypoints`);
             if (onUpload) onUpload();
         } catch (e) {
-            console.error(e);
-            alert("Failed to upload mission");
+            console.error('Mission upload error:', e);
+            const errorMsg = e.response?.data?.message || e.message || "Unknown error";
+            alert(`❌ Failed to upload mission: ${errorMsg}`);
         }
     };
 
