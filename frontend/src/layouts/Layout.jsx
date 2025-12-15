@@ -8,8 +8,12 @@ const Layout = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/app' },
-        { name: 'Mission Planner', path: '/app/planner' },
-        { name: 'Intelligence', path: '/app/intel' }
+        { name: 'Planner', path: '/app/planner' },
+        { name: 'Intel', path: '/app/intel' },
+        { name: 'Drones', path: '/app/drones' },
+        { name: 'Geofence', path: '/app/geofence' },
+        { name: 'Logs', path: '/app/logs' },
+        { name: 'Simulator', path: '/app/simulator' }
     ];
 
     return (

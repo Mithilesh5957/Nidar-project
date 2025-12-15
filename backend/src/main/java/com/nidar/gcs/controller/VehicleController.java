@@ -3,17 +3,20 @@ package com.nidar.gcs.controller;
 import com.nidar.gcs.model.MissionItem;
 import com.nidar.gcs.model.TelemetryPoint;
 import com.nidar.gcs.model.Vehicle;
-import com.nidar.gcs.service.MavlinkService;
+import com.nidar.gcs.service.MAVProxyService;
 import com.nidar.gcs.service.MissionService;
 import com.nidar.gcs.service.VehicleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vehicles")
+@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 public class VehicleController {
 
     @Autowired
@@ -23,7 +26,7 @@ public class VehicleController {
     private MissionService missionService;
 
     @Autowired
-    private MavlinkService mavlinkService;
+    private MAVProxyService mavProxyService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -55,53 +58,89 @@ public class VehicleController {
         if (mission != null) {
             missionService.setMission(id, mission);
             messagingTemplate.convertAndSend("/topic/missions/" + id, mission);
-            mavlinkService.sendMission(id, mission);
+            // Mission is saved to DB; MAVProxy upload happens via DroneController
         }
     }
-    
+
     @PostMapping("/{id}/command/mode")
-    public void setMode(@PathVariable String id, @RequestParam String mode) {
-        mavlinkService.setMode(id, mode);
+    public Map<String, Object> setMode(@PathVariable String id, @RequestParam String mode) {
+        Map<String, Object> response = new HashMap<>();
+        // Mode commands sent via MAVProxyService.sendCommand
+        boolean success = mavProxyService.sendCommand("MODE " + mode);
+        response.put("success", success);
+        response.put("mode", mode);
+        return response;
     }
 
     @PostMapping("/{id}/mission-fetch")
     public List<MissionItem> fetchMission(@PathVariable String id) {
-        // In real MAVLink integration, this might query the drone.
-        // For now, return what we have in memory.
         return missionService.getMission(id);
     }
 
     @PostMapping("/{id}/command/rtl")
-    public void sendRTL(@PathVariable String id) {
-        mavlinkService.returnToLaunch(id);
+    public Map<String, Object> sendRTL(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("RTL");
+        response.put("success", success);
+        response.put("command", "RTL");
+        return response;
     }
 
     @PostMapping("/{id}/command/arm")
-    public void arm(@PathVariable String id) {
-        mavlinkService.armVehicle(id);
+    public Map<String, Object> arm(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("ARM");
+        response.put("success", success);
+        response.put("command", "ARM");
+        return response;
     }
 
     @PostMapping("/{id}/command/disarm")
-    public void disarm(@PathVariable String id) {
-        mavlinkService.disarmVehicle(id);
+    public Map<String, Object> disarm(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("DISARM");
+        response.put("success", success);
+        response.put("command", "DISARM");
+        return response;
     }
 
     @PostMapping("/{id}/command/takeoff")
-    public void takeoff(@PathVariable String id, @RequestParam(defaultValue = "10") float altitude) {
-        mavlinkService.takeoff(id, altitude);
+    public Map<String, Object> takeoff(@PathVariable String id, @RequestParam(defaultValue = "10") float altitude) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("TAKEOFF " + altitude);
+        response.put("success", success);
+        response.put("command", "TAKEOFF");
+        response.put("altitude", altitude);
+        return response;
     }
-    
+
     @PostMapping("/{id}/command/goto")
-    public void goToPosition(@PathVariable String id, @RequestParam double lat, @RequestParam double lon, @RequestParam(defaultValue = "10") float alt) {
-        mavlinkService.reposition(id, lat, lon, alt);
+    public Map<String, Object> goToPosition(@PathVariable String id, @RequestParam double lat, @RequestParam double lon,
+            @RequestParam(defaultValue = "10") float alt) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("GOTO " + lat + " " + lon + " " + alt);
+        response.put("success", success);
+        response.put("command", "GOTO");
+        response.put("lat", lat);
+        response.put("lon", lon);
+        response.put("alt", alt);
+        return response;
     }
 
     @PostMapping("/{id}/command/stream")
-    public void requestStream(@PathVariable String id) {
-        mavlinkService.requestDataStream(id);
+    public Map<String, Object> requestStream(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        boolean success = mavProxyService.sendCommand("REQUEST_DATA_STREAM");
+        response.put("success", success);
+        response.put("command", "REQUEST_DATA_STREAM");
+        return response;
     }
+
     @GetMapping("/diagnostics")
-    public java.util.Map<String, Object> getDiagnostics() {
-        return mavlinkService.getDiagnostics();
+    public Map<String, Object> getDiagnostics() {
+        Map<String, Object> diagnostics = new HashMap<>();
+        diagnostics.put("connected", mavProxyService.isConnected());
+        diagnostics.put("timestamp", System.currentTimeMillis());
+        return diagnostics;
     }
 }
