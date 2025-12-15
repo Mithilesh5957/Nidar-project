@@ -27,10 +27,14 @@ public class MAVProxyService {
     @Value("${mavlink.simulation.enabled:true}")
     private boolean simulationEnabled;
 
+    @Value("${mavlink.serial.enabled:false}")
+    private boolean serialEnabled;
+
     private final SimpMessagingTemplate messagingTemplate;
     private final TelemetryService telemetryService;
     private final MAVLinkMessageService mavLinkMessageService;
     private final MissionExecutionService missionExecutionService;
+    private final MAVLinkSerialService mavLinkSerialService;
 
     private DatagramSocket udpSocket;
     private InetAddress mavproxyAddress;
@@ -40,16 +44,21 @@ public class MAVProxyService {
     public MAVProxyService(SimpMessagingTemplate messagingTemplate,
             TelemetryService telemetryService,
             MAVLinkMessageService mavLinkMessageService,
-            MissionExecutionService missionExecutionService) {
+            MissionExecutionService missionExecutionService,
+            MAVLinkSerialService mavLinkSerialService) {
         this.messagingTemplate = messagingTemplate;
         this.telemetryService = telemetryService;
         this.mavLinkMessageService = mavLinkMessageService;
         this.missionExecutionService = missionExecutionService;
+        this.mavLinkSerialService = mavLinkSerialService;
     }
 
     @PostConstruct
     public void init() {
-        if (simulationEnabled) {
+        if (serialEnabled) {
+            log.info("Real drone mode (serial enabled) - MAVLink data will come from flight controller on COM port");
+            connect(); // Connect for sending data to QGC
+        } else if (simulationEnabled) {
             log.info("MAVLink simulation enabled - auto-connecting to QGC...");
             connect();
         } else {
@@ -131,6 +140,9 @@ public class MAVProxyService {
     }
 
     public boolean isConnected() {
+        if (serialEnabled) {
+            return mavLinkSerialService.isConnected();
+        }
         return connected;
     }
 

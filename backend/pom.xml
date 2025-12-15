@@ -75,6 +75,13 @@
             <artifactId>json</artifactId>
             <version>20231013</version>
         </dependency>
+        
+        <!-- jSerialComm for Serial Port Communication -->
+        <dependency>
+            <groupId>com.fazecast</groupId>
+            <artifactId>jSerialComm</artifactId>
+            <version>2.10.4</version>
+        </dependency>
     </dependencies>
     
     <build>
